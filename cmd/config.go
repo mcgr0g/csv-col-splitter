@@ -1,4 +1,5 @@
 package cmd
+
 /*
 Copyright © 2021 https://github.com/mcgr0g
 
@@ -17,9 +18,9 @@ limitations under the License.
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // configCmd represents the config command
@@ -28,33 +29,30 @@ var configCmd = &cobra.Command{
 	Short: "show or freeze configs",
 	Long: `Command to view configuration key-values in terminal 
 or save it to file`,
-	//Args: func(cmd *cobra.Command, args []string) error {
-	//	if len(args) < 1 {
-	//		return fmt.Errorf("requires at least 1 argument")
-	//	}
-	//	return nil
-	//},
 	Run: func(cmd *cobra.Command, args []string) {
-		println(len(args))
 		fmt.Printf("Inside subCmd PreRun with args: %v\n", args)
 		if cmd.Flag("show").Changed {
 			fmt.Println("config called")
 			fmt.Println("cfgFile = ", cmd.Flag("config").Value)
 
-			for ikey, ival:= range viper.AllSettings(){
-				fmt.Println("'"+ikey+"'", "setted to %t", ival)
+			for ikey, ival := range viper.AllSettings() {
+				fmt.Println("'"+ikey+"'", "setted to ", ival)
 			}
 		}
-		if cmd.Flag("freeze").Changed{
+		if cmd.Flag("freeze").Changed {
 			//fmt.Println("AllKeys = ", viper.AllSettings())
 			if cmd.Flag("config").Changed {
 				// viper подцепил файл конфигурации, так как прередан флагом
 				err := viper.WriteConfig()
-				if err != nil {println(err)}
+				if err != nil {
+					println(err)
+				}
 			} else {
 				// viper не подцепил файл конфигурации по дефолтному имени, так как его нет на ФС
 				err := viper.WriteConfigAs(cmd.Flag("config").Value.String())
-				if err != nil {println(err)}
+				if err != nil {
+					println(err)
+				}
 			}
 			fmt.Println("cfgFile = ", cmd.Flag("config").Value)
 		}
@@ -64,7 +62,6 @@ or save it to file`,
 func init() {
 	rootCmd.AddCommand(configCmd)
 
-	//configCmd.Flags().Bool(&show, true, "show in terminal")
 	configCmd.Flags().BoolP("show", "s", true, "show in terminal")
 	configCmd.Flags().BoolP("freeze", "f", true, "freeze in file")
 }

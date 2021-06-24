@@ -6,6 +6,7 @@
 # ide
 .idea
 *.code-workspace
+.vscode
 
 # Architecture specific extensions/prefixes
 *.csv
