@@ -12,3 +12,4 @@
 *.csv
 *.exe
 *.yaml
+log*
