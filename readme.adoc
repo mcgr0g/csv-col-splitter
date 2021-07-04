@@ -1,0 +1,50 @@
+:toc:
+:toclevels: 5
+:sectnumlevels: 5
+:sectlinks:
+:sectanchors:
+= csv column splitter
+
+== about
+
+csv-col-splitter is a simple tool to split one column in csv files, if it contains key-value substrings
+
+== default configuration
+you can see it in shell with command `csv-col-splitter config -s`
+Also you can run `csv-col-splitter config -s` to save it for modification woth commans:
+[source,yaml]
+----
+work-dir: ""
+source-pattern: *.csv
+with-headers: true
+target-col: 8
+col-separator: ;
+subcol-delimeter: '&'
+keyvalue-delimeter: '@'
+key-position: 1
+result-file-sfx: _splt
+----
+
+== how it works
+Utility  get file with such struture
+
+[%header,format=csv, separator=;]
+|===
+Smth for users;UID;typeCode;number;Desc;unused1;unused2;unused3;target column;Smth for users2;record status
+3D47-92-10-31;191ee432-831b-4428-b8c0-2603fd6e48a8;DM6;1;Desc 1;;;;&value@key;3D47-92-10-3;READY_TO_USE
+3D47-92-10-41;0e1e1d42-09e2-4dec-ad0f-ff3b8d511de3;DM6;1;Desc 2;;;;&value@key&bar1@foo;3D47-92-10-4;READY_TO_USE
+3D47-92-1-11;e0bdcb48-acc4-4468-abee-d384b2b8ca2c;DM6;1;Desc 3;;;;&value@key&bar1@foo;3D47-92-1-1;READY_TO_USE
+|===
+
+and scan target column for substrings with key-value pattern.
+
+New columns will be whith headers "key" and "foo".
+
+It's easer to show:
+[%header,format=csv, separator=;]
+|===
+Smth for users;UID;typeCode;number;Desc;unused1;unused2;unused3;target column;Smth for users2;record status;foo;key
+3D47-92-10-31;191ee432-831b-4428-b8c0-2603fd6e48a8;DM6;1;Desc 1;;;;&value@key;3D47-92-10-3;READY_TO_USE;;value
+3D47-92-10-41;0e1e1d42-09e2-4dec-ad0f-ff3b8d511de3;DM6;1;Desc 2;;;;&value@key&bar1@foo;3D47-92-10-4;READY_TO_USE;bar1;value
+3D47-92-1-11;e0bdcb48-acc4-4468-abee-d384b2b8ca2c;DM6;1;Desc 3;;;;&value@key&bar1@foo;3D47-92-1-1;READY_TO_USE;bar1;value
+|===

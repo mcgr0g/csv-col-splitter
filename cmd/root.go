@@ -44,7 +44,6 @@ var (
 	kvDelimeter       string
 	subkeyPosition    int
 	subValuePosition  int
-	appendPosition    int
 	resultFileSfx     string
 )
 
@@ -88,7 +87,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&subcolDelimeter, "subcol-delimeter", "d", "&", "delimeter for subcolumns in target-col column")
 	rootCmd.PersistentFlags().StringVarP(&kvDelimeter, "keyvalue-delimeter", "k", "@", "delimeter for key-value in subcolumns")
 	rootCmd.PersistentFlags().IntVar(&subkeyPosition, "key-position", 1, "key position in key-value pair, starts from 0. Default 1 - after the value. Other values are impossible")
-	rootCmd.PersistentFlags().IntVarP(&appendPosition, "append-position", "a", 0, "position for append parsed columns, default 0 (after the last)")
 	rootCmd.PersistentFlags().StringVarP(&resultFileSfx, "result-file-sfx", "r", "_splt", "suffix for processed file")
 
 	viper.BindPFlag("work-dir", rootCmd.PersistentFlags().Lookup("work-dir"))
@@ -99,7 +97,6 @@ func init() {
 	viper.BindPFlag("subcol-delimeter", rootCmd.PersistentFlags().Lookup("subcol-delimeter"))
 	viper.BindPFlag("key-position", rootCmd.PersistentFlags().Lookup("key-position"))
 	viper.BindPFlag("keyvalue-delimeter", rootCmd.PersistentFlags().Lookup("keyvalue-delimeter"))
-	viper.BindPFlag("append-position", rootCmd.PersistentFlags().Lookup("append-position"))
 	viper.BindPFlag("result-file-sfx", rootCmd.PersistentFlags().Lookup("result-file-sfx"))
 
 }
@@ -119,7 +116,6 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		// fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 		log.Info("Using config file: " + viper.ConfigFileUsed())
 		hasHeaders = viper.GetBool("with-headers")
 		colSeparator = viper.GetString("col-separator")
@@ -167,8 +163,8 @@ func SplitCmd() {
 	var headerMainsCount int
 
 	//TODO make multiple file processing https://stackoverflow.com/questions/47295259/concurrently-write-multiple-csv-files-from-one-splitting-on-a-partition-column
-
 	workFile := filesToProcess[0]
+
 	// need to make 2 file reads.
 	headersSlice, headerMainsCount = ScanCsvHeaders(workFile, inCh, headersSlice)
 
