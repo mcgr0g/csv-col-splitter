@@ -61,7 +61,7 @@ New columns append to right after last.`,
 			log.Error(err.Error())
 		} else {
 			log.Info("позиция ключей в паре: " + strconv.Itoa(subkeyPosition))
-			subValuePosition = 1 - subkeyPosition // ключ вторым, то значение первым и наоборот. Третьего не дано.
+			subValuePosition = 1 - subkeyPosition // key goes second, than value is first and vice versa. No other options.
 			log.Info("позиция значений в паре: " + strconv.Itoa(subValuePosition))
 			SplitCmd()
 		}
@@ -169,19 +169,19 @@ func SplitCmd() {
 	//TODO make multiple file processing https://stackoverflow.com/questions/47295259/concurrently-write-multiple-csv-files-from-one-splitting-on-a-partition-column
 
 	workFile := filesToProcess[0]
+	// need to make 2 file reads.
 	headersSlice, headerMainsCount = ScanCsvHeaders(workFile, inCh, headersSlice)
 
 	outFileExt := filepath.Ext(workFile)
 	outputFile := strings.ReplaceAll(workFile, outFileExt, "") + resultFileSfx + outFileExt
 	log.Info("Splitting to: " + outputFile)
-	// writeCsvHeaders(outputFile, headersSlice)
 
 	wg.Add(1)
 	go ScanCsvContent(&wg, workFile, inCh, headersSlice, headerMainsCount)
 
 	wg.Add(1)
 	go writeCsvContent(&wg, outputFile, inCh)
-	wg.Wait() // blocks here
+	wg.Wait()
 }
 
 func findCsv(files *[]string) {
@@ -217,7 +217,7 @@ func ScanCsvHeaders(fileToProcess string, ch chan []string, headSlice []string) 
 	reader.FieldsPerRecord = 0 // надежда на ширину колонк, как в 1й строке
 	r, _ := utf8.DecodeRuneInString(colSeparator)
 	reader.Comma = r
-	reader.LazyQuotes = false // не ожидаем кавычек в значениях
+	reader.LazyQuotes = false // no quotes in cells
 
 	var unsortedSubHeaders []string
 	var rowCnt int = 0
@@ -237,7 +237,7 @@ func ScanCsvHeaders(fileToProcess string, ch chan []string, headSlice []string) 
 		}
 
 		rowCnt += 1
-		// обработка текущих хидеров
+		// preocessing current headers in first row
 		if rowCnt == 1 && hasHeaders {
 			log.Info("len of headers: " + strconv.Itoa(len(record)))
 			for _, value := range record {
@@ -246,26 +246,23 @@ func ScanCsvHeaders(fileToProcess string, ch chan []string, headSlice []string) 
 			}
 			log.Info("saved headers with length: " + strconv.Itoa(len(headSlice)))
 		} else {
-			//поиск новых хидеров
+			//scan for a new headers
 			for key := range FindKVinColumn(record) {
 				if _, isVisValueInHeader := ValuePositionInSlice(unsortedSubHeaders, key); !isVisValueInHeader {
 					unsortedSubHeaders = append(unsortedSubHeaders, key)
 					log.Info("new headers found in row = " + strconv.Itoa(rowCnt))
-
 				}
 			}
-
 		}
 	}
 
 	if cap(unsortedSubHeaders) > 0 {
-		//для начала сортирнем
 		sort.Strings(unsortedSubHeaders)
 		log.Info("appended new value to headers = " + strings.Join(unsortedSubHeaders, " "))
 		headSlice = append(headSlice, unsortedSubHeaders...)
 	}
 
-	// немного статистики
+	// a little bit statistics
 	totalHeadersCount := len(headSlice)
 	foundSubHeaders := totalHeadersCount - foundMainHeaders
 	log.Info("rows scanned: " + strconv.Itoa(rowCnt))
@@ -292,7 +289,7 @@ func ScanCsvContent(wg *sync.WaitGroup, fileToProcess string, ch chan []string, 
 	reader.FieldsPerRecord = 0 // надежда на ширину колонк, как в 1й строке
 	r, _ := utf8.DecodeRuneInString(colSeparator)
 	reader.Comma = r
-	reader.LazyQuotes = false // не ожидаем кавычек в значениях
+	reader.LazyQuotes = false // no quotes in cells
 
 	var rowCnt int = 0
 	subHeaderCount := len(headSlice) - headersMainCnt
@@ -312,34 +309,34 @@ func ScanCsvContent(wg *sync.WaitGroup, fileToProcess string, ch chan []string, 
 
 		rowCnt += 1
 
-		if hasHeaders && rowCnt == 1 { // штатные хидера есть и это они
-			log.Info("запись штатных хидеров хидеров в канал")
-			log.Debug("на шаге " + strconv.Itoa(rowCnt) + " пишем :" + strings.Join(headSlice, " "))
+		if hasHeaders && rowCnt == 1 {
+			log.Debug("processing original headers")
+			log.Debug("on row " + strconv.Itoa(rowCnt) + " splitting :" + strings.Join(headSlice, " "))
 			ch <- headSlice
 		} else {
-			log.Debug("ищем сабхидеры для записи в новую колонку")
+			log.Debug("scan row for subheaders")
 			for pos, subHeaderToFind := range headSlice {
-				if pos >= headersMainCnt { // ищем только новые сабхидеры; позиция с 0, а счетчик с 1
-					var foundSubHeaders int = 0 // найденные хидеры в подстроке для разбития
+				if pos >= headersMainCnt { // searching only for subheaders;
+					var foundSubHeaders int = 0
 					for subHeaderInRecord, subValueToWrite := range FindKVinColumn(record) {
-						if subHeaderInRecord == subHeaderToFind { // нашли искомый сабхидер
+						if subHeaderInRecord == subHeaderToFind { // found the sought subheader
 							foundSubHeaders += 1
-							log.Debug("нашли сабзначение для записи: " + subValueToWrite)
+							log.Debug("found sub-value = " + subValueToWrite)
 							record = append(record, subValueToWrite)
 						}
 					}
-					// не нашли хидер в строке, но надо дописать 1 разделитель, что бы ширина csv была однородной во всех строках
-					log.Debug("количество обработанных сабхидеров в строке = " + strconv.Itoa(foundSubHeaders))
+					// not found the sought subheader, so  но надо дописать 1 разделитель, что бы ширина csv была однородной во всех строках
+					log.Debug("count of processoed sub-header in row = " + strconv.Itoa(foundSubHeaders))
 					if foundSubHeaders == 0 {
 						record = append(record, "")
 					}
 				}
 			}
-			log.Debug("на шаге " + strconv.Itoa(rowCnt) + " пишем: " + strings.Join(record, ";"))
+			log.Debug("on row " + strconv.Itoa(rowCnt) + " splintting: " + strings.Join(record, ";"))
 			ch <- record
 		}
 	}
-	fmt.Println("total rows processed to channel: ", len(headSlice))
+	log.Info("total rows scanned: " + strconv.Itoa(rowCnt))
 	wg.Done() // decrement counter
 
 }
