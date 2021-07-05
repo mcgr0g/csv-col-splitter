@@ -26,7 +26,7 @@ result-file-sfx: _splt
 ----
 
 == how it works
-Utility  search file with specific name (and get first from list)
+Utility  search file with specific name (and process all matches)
 with specific struture. There is example
 
 [%header,format=csv, separator=;]

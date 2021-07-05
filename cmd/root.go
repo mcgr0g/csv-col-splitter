@@ -156,24 +156,21 @@ func SplitCmd() {
 	log.Info("sub main called")
 	var filesToProcess []string
 	findCsv(&filesToProcess)
-	outCh := make(chan []string)
 
-	//TODO make multiple file processing https://stackoverflow.com/questions/47295259/concurrently-write-multiple-csv-files-from-one-splitting-on-a-partition-column
-	workFile := filesToProcess[0]
+	for _, workFile := range filesToProcess {
+		headersSlice, headerMainsCount, fileContent := ScanCsvAndSubHeaders(workFile)
+		outCh := make(chan []string)
+		outFileExt := filepath.Ext(workFile)
+		outputFile := strings.ReplaceAll(workFile, outFileExt, "") + resultFileSfx + outFileExt
+		log.Info("Splitting to: " + outputFile)
 
-	// need to make 2 file reads.
-	headersSlice, headerMainsCount, fileContent := ScanCsvAndSubHeaders(workFile)
+		wg.Add(1)
+		go RowSplitter(&wg, outCh, headersSlice, headerMainsCount, fileContent)
 
-	outFileExt := filepath.Ext(workFile)
-	outputFile := strings.ReplaceAll(workFile, outFileExt, "") + resultFileSfx + outFileExt
-	log.Info("Splitting to: " + outputFile)
-
-	wg.Add(1)
-	go RowSplitter(&wg, outCh, headersSlice, headerMainsCount, fileContent)
-
-	wg.Add(1)
-	go RowWriter(&wg, outputFile, outCh)
-	wg.Wait()
+		wg.Add(1)
+		go RowWriter(&wg, outputFile, outCh)
+		wg.Wait()
+	}
 }
 
 func findCsv(files *[]string) {
