@@ -56,3 +56,13 @@ Smth for users;UID;typeCode;number;Desc;unused1;unused2;unused3;target column;Sm
 3D47-92-10-41;0e1e1d42-09e2-4dec-ad0f-ff3b8d511de3;DM6;1;Desc 2;;;;&value@key&bar1@foo;3D47-92-10-4;READY_TO_USE;bar1;value
 3D47-92-1-11;e0bdcb48-acc4-4468-abee-d384b2b8ca2c;DM6;1;Desc 3;;;;&value@key&bar1@foo;3D47-92-1-1;READY_TO_USE;bar1;value
 |===
+
+so just call
+
+    .\csv-col-splitter.exe
+
+without any argument. Or give path to config and specific flag:
+
+    .\csv-col-splitter.exe --config csv-col-splitter-clipped.yaml --target-col 8
+    
+You will see: argument from cli is preferred rather than yaml
