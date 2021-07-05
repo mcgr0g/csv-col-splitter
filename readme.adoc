@@ -7,11 +7,18 @@
 
 == about
 
-csv-col-splitter is a simple tool to split one column in csv files, if it contains key-value substrings
+csv-col-splitter is a simple tool to split one column in csv files, if it contains key-value substring*s*
 
 == default configuration
-you can see it in shell with command `csv-col-splitter config -s`
-Also you can run `csv-col-splitter config -s` to save it for modification woth commans:
+you can see it in shell with command
+
+    .\csv-col-splitter.exe config -s
+
+Also you can run 
+
+    .\csv-col-splitter.exe config -f
+
+to save `csv-col-splitter.yaml` for future modification. Default values are:
 [source,yaml]
 ----
 work-dir: ""
