@@ -18,7 +18,6 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -157,26 +156,23 @@ func SplitCmd() {
 	log.Info("sub main called")
 	var filesToProcess []string
 	findCsv(&filesToProcess)
-
-	inCh := make(chan []string)
-	var headersSlice []string
-	var headerMainsCount int
+	outCh := make(chan []string)
 
 	//TODO make multiple file processing https://stackoverflow.com/questions/47295259/concurrently-write-multiple-csv-files-from-one-splitting-on-a-partition-column
 	workFile := filesToProcess[0]
 
 	// need to make 2 file reads.
-	headersSlice, headerMainsCount = ScanCsvHeaders(workFile, inCh, headersSlice)
+	headersSlice, headerMainsCount, fileContent := ScanCsvAndSubHeaders(workFile)
 
 	outFileExt := filepath.Ext(workFile)
 	outputFile := strings.ReplaceAll(workFile, outFileExt, "") + resultFileSfx + outFileExt
 	log.Info("Splitting to: " + outputFile)
 
 	wg.Add(1)
-	go ScanCsvContent(&wg, workFile, inCh, headersSlice, headerMainsCount)
+	go RowSplitter(&wg, outCh, headersSlice, headerMainsCount, fileContent)
 
 	wg.Add(1)
-	go writeCsvContent(&wg, outputFile, inCh)
+	go RowWriter(&wg, outputFile, outCh)
 	wg.Wait()
 }
 
@@ -191,16 +187,20 @@ func findCsv(files *[]string) {
 			log.Warn("nothing found")
 			os.Exit(1)
 		} else {
-			for i := range matches {
-				logMsg += matches[i] + " "
-				*files = append(*files, matches[i])
+			for i, v := range matches {
+				if strings.Contains(v, viper.GetString("result-file-sfx")) {
+					log.Warn("ignorig result file: " + v)
+				} else {
+					logMsg += matches[i] + " "
+					*files = append(*files, matches[i])
+				}
 			}
 			log.Info(logMsg)
 		}
 	}
 }
 
-func ScanCsvHeaders(fileToProcess string, ch chan []string, headSlice []string) ([]string, int) {
+func ScanCsvAndSubHeaders(fileToProcess string) ([]string, int, [][]string) {
 	log.Info("scan csv headers called")
 	var reader *csv.Reader
 	content, err := os.Open(fileToProcess)
@@ -215,34 +215,31 @@ func ScanCsvHeaders(fileToProcess string, ch chan []string, headSlice []string) 
 	reader.Comma = r
 	reader.LazyQuotes = false // no quotes in cells
 
+	csvContent, err := reader.ReadAll()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 	var unsortedSubHeaders []string
 	var rowCnt int = 0
 	var foundMainHeaders int = 0
-	for {
-		record, err := reader.Read()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Error(err.Error())
-			os.Exit(1)
-		} else if len(record) < colTartetPosition {
+	var headSlice []string
+	for i, record := range csvContent {
+		if i == 0 && len(record) < colTartetPosition { // lets check only first row
 			errStr := "Sorry, you have " + strconv.Itoa(len(record)) + " columns but target colunn position is " + strconv.Itoa(colTartetPosition)
 			log.Error(errStr)
 			os.Exit(1)
 		}
 
 		rowCnt += 1
-		// preocessing current headers in first row
-		if rowCnt == 1 && hasHeaders {
+		if rowCnt == 1 && hasHeaders { // preocessing current headers in first row
 			log.Info("len of headers: " + strconv.Itoa(len(record)))
 			for _, value := range record {
 				headSlice = append(headSlice, value)
 				foundMainHeaders += 1
 			}
 			log.Info("saved headers with length: " + strconv.Itoa(len(headSlice)))
-		} else {
-			//scan for a new headers
+		} else { //scan for a new headers
 			for key := range FindKVinColumn(record) {
 				if _, isVisValueInHeader := ValuePositionInSlice(unsortedSubHeaders, key); !isVisValueInHeader {
 					unsortedSubHeaders = append(unsortedSubHeaders, key)
@@ -269,42 +266,18 @@ func ScanCsvHeaders(fileToProcess string, ch chan []string, headSlice []string) 
 		log.Error("Sorry, you have nothig to split in target columns")
 		os.Exit(1)
 	}
-	return headSlice, foundMainHeaders
+	return headSlice, foundMainHeaders, csvContent
 }
 
-func ScanCsvContent(wg *sync.WaitGroup, fileToProcess string, ch chan []string, headSlice []string, headersMainCnt int) {
-	log.Info("read csv content called")
-	var reader *csv.Reader
-	content, err := os.Open(fileToProcess)
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-	defer content.Close()
-	reader = csv.NewReader(content)
-	reader.FieldsPerRecord = 0 // надежда на ширину колонк, как в 1й строке
-	r, _ := utf8.DecodeRuneInString(colSeparator)
-	reader.Comma = r
-	reader.LazyQuotes = false // no quotes in cells
+func RowSplitter(wg *sync.WaitGroup, ch chan []string, headSlice []string, headersMainCnt int, fileContent [][]string) {
+	log.Info("row splitter called")
 
 	var rowCnt int = 0
 	subHeaderCount := len(headSlice) - headersMainCnt
 	log.Info("subHeaderCount: " + strconv.Itoa(subHeaderCount))
-
-	for {
-		record, err := reader.Read()
-
-		if err == io.EOF {
-			close(ch)
-			break
-		} else if err != nil {
-			log.Error(err.Error())
-			close(ch)
-			break
-		}
-
+	for _, record := range fileContent {
 		rowCnt += 1
-
+		log.Debug("splitting row: " + strconv.Itoa(rowCnt))
 		if hasHeaders && rowCnt == 1 {
 			log.Debug("processing original headers")
 			log.Debug("on row " + strconv.Itoa(rowCnt) + " splitting :" + strings.Join(headSlice, " "))
@@ -328,10 +301,11 @@ func ScanCsvContent(wg *sync.WaitGroup, fileToProcess string, ch chan []string, 
 					}
 				}
 			}
-			log.Debug("on row " + strconv.Itoa(rowCnt) + " splintting: " + strings.Join(record, ";"))
+			log.Debug("on row " + strconv.Itoa(rowCnt) + " splint result: " + strings.Join(record, ";"))
 			ch <- record
 		}
 	}
+	close(ch)
 	log.Info("total rows scanned: " + strconv.Itoa(rowCnt))
 	wg.Done() // decrement counter
 
@@ -352,8 +326,8 @@ func FindKVinColumn(record []string) map[string]string {
 	return resultMap
 }
 
-func writeCsvContent(wg *sync.WaitGroup, fileToProcess string, ch chan []string) {
-	log.Info("write csv content called")
+func RowWriter(wg *sync.WaitGroup, fileToProcess string, ch chan []string) {
+	log.Info("row writer called")
 
 	var writer *csv.Writer
 	log.Info("output file: " + fileToProcess)
@@ -368,8 +342,12 @@ func writeCsvContent(wg *sync.WaitGroup, fileToProcess string, ch chan []string)
 
 	separator, _ := utf8.DecodeRuneInString(colSeparator)
 	writer.Comma = separator
+	var rowCnt int = 0
 
 	for row := range ch {
+		rowCnt += 1
+		log.Debug("writing output file row: " + strconv.Itoa(rowCnt))
+		log.Debug("writing output file row value: " + strings.Join(row, " "))
 		err := writer.Write(row)
 		if err != nil {
 			log.Error(err.Error())

@@ -26,7 +26,8 @@ result-file-sfx: _splt
 ----
 
 == how it works
-Utility  get file with such struture
+Utility  search file with specific name (and get first from list)
+with specific struture. There is example
 
 [%header,format=csv, separator=;]
 |===
