@@ -26,7 +26,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	log "github.com/mcgr0g/csv-col-splitter/pkg"
+	log "github.com/mcgr0g/csv-col-splitter/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

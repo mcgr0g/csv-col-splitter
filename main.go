@@ -18,7 +18,7 @@ package main
 
 import (
 	"github.com/mcgr0g/csv-col-splitter/cmd"
-	log "github.com/mcgr0g/csv-col-splitter/pkg"
+	log "github.com/mcgr0g/csv-col-splitter/logging"
 )
 
 func main() {

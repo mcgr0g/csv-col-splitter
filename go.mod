@@ -2,6 +2,8 @@ module github.com/mcgr0g/csv-col-splitter
 
 go 1.16
 
+replace github.com/mcgr0g/csv-col-splitter/logging => ../logging
+
 require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.1.3
